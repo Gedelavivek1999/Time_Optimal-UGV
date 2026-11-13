@@ -2,7 +2,7 @@
 #include "driver/gpio.h"
 #include "globals.h"
 
-// ---------------- ISR shared data ----------------
+
 static volatile uint32_t echo_start_us = 0;
 static volatile uint32_t echo_width_us = 0;
 static volatile bool     echo_armed    = false;  // rising edge seen, waiting for falling

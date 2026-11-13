@@ -6,11 +6,14 @@ static inline float clampf(float v, float lo, float hi) {
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
-// Pure bang-bang time-optimal switching law.
-//   e_p = d - d_safe,  e_v = d_dot
-//   S   = e_p + e_v*|e_v| / (2*A_max)
-//   S > 0 -> FULL forward   (+100)
-//   S <= 0 -> FULL reverse  (-100)  (brake)
+
+static void send_telemetry(uint32_t t, bool valid, float raw, float d, float v, float S, float cmd) {
+    TelemetryPacket p;
+    p.t_ms = t; p.valid = valid; p.raw_cm = raw;
+    p.dist_cm = d; p.vel_cm_s = v; p.S = S; p.cmd = cmd;
+    xQueueOverwrite(telemetryQueue, &p);   // non-blocking: never delays control
+}
+
 static float compute_command(float d, float v, float &S_out) {
     float e_p = d - SAFE_DISTANCE_CM;
     float S = e_p + (v * fabsf(v)) / (2.0f * MAX_ACCEL_CM_S2);
@@ -26,7 +29,6 @@ void Task_Math(void *pvParameters) {
     uint32_t last_ts    = 0;
     int      miss       = 0;
     int      rejects    = 0;
-    uint32_t sample_no  = 0;
     float    cmd        = 0.0f;
     float    S          = 0.0f;
 
@@ -36,7 +38,7 @@ void Task_Math(void *pvParameters) {
             tracking = false;
             cmd = 0.0f;
             xQueueOverwrite(motorQueue, &cmd);
-            Serial.println("[math] no sensor data -> STOP");
+            send_telemetry(millis(), false, -1.0f, x, v, 0.0f, cmd);
             continue;
         }
 
@@ -85,12 +87,6 @@ void Task_Math(void *pvParameters) {
 
         xQueueOverwrite(motorQueue, &cmd);
 
-#if DEBUG_TELEMETRY
-        if ((++sample_no % TELEMETRY_EVERY) == 0) {
-            Serial.printf("[math] raw=%.1f valid=%d  d=%.1f v=%.1f  S=%.1f  cmd=%.0f\n",
-                          s.valid ? s.distance_cm : -1.0f, (int)s.valid,
-                          x, v, S, cmd);
-        }
-#endif
+        send_telemetry(s.timestamp_ms, s.valid, s.valid ? s.distance_cm : -1.0f, x, v, S, cmd);
     }
 }

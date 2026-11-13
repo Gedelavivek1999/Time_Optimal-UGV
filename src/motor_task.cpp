@@ -58,7 +58,7 @@ void Task_Motor(void *pvParameters) {
         }
 
         if (want == DIR_STOP) {
-            if (cur_dir != DIR_STOP) motor_stop(); 
+            if (cur_dir != DIR_STOP) motor_stop();
             cur_dir = DIR_STOP;
         } else if (want != cur_dir) {
             // Direction change: brief coast to protect the H-bridge and gears
